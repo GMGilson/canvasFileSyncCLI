@@ -1,11 +1,13 @@
 # Builtins
 from os import environ
+from typing import Set
+from pprint import pprint
 import json
 
 # Externs
 from canvasapi import Canvas, exceptions
 from dotenv import load_dotenv
-from 
+
 
 load_dotenv("./config/.env")
 
@@ -39,14 +41,14 @@ class Client:
                 files = list()
                 for filePacket in course.get_files():
                     file = {
-                        "fileId": filePacket.id,
+                        "fileId": str(filePacket.id),
                         "fileName": filePacket.filename,
                         "timestamp": filePacket.modified_at
                     }
                     files.append(file)
 
-                manifest[course.name] = {
-                    "courseId": course.id,
+                manifest[str(course.id)] = {
+                    "courseName": course.name,
                     "files": files
                 }
 
@@ -60,7 +62,42 @@ class Client:
         return manifest
 
     def loadManifest(self, manifestFile: str) -> dict:
-        return json.load(manifestFile)
+        with open(manifestFile) as file:
+            return json.load(file)
 
     def diffManifest(self):
+        oldManifest = self.loadManifest("config/manifest.json")
+        newManifest = self.generateManifest()
+
+        # contains API path to files to be downloaded
+        # {courseID: [fileIds]}
+        fileUpdates = dict()
+
+        # contains a set of filepaths marked for deletion
+        fileRemovals = set()
+
+        self.resolveCourseDifference(fileUpdates, fileRemovals, oldManifest, newManifest)
+        self.resolveFileUpdates()
+
+    def resolveCourseDifference(self,
+                                fileUpdates: dict,
+                                fileRemovals: Set[str],
+                                oldManifest: dict,
+                                newManifest: dict
+                                ):
+
+        oldManifestCourses = oldManifest.keys()
+        newManifestCourses = newManifest.keys()
+
+        # User has dropped or removed courses to be tracked
+        for courseId in oldManifestCourses - newManifestCourses:
+            for file in oldManifest[courseId]["files"]:
+                filePath = f'{oldManifest[courseId]["courseName"]}/{file["fileName"]}'
+                fileRemovals.add(filePath)
+
+        # User has added new courses
+        for courseId in newManifestCourses - oldManifestCourses:
+            fileUpdates[courseId] = [file["fileId"] for file in newManifest[courseId]["files"]]
+
+    def resolveFileUpdates(fileUpdates: dict, oldManifest: dict, newManifest: dict):
         pass

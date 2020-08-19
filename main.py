@@ -23,4 +23,4 @@ from src.manifest import Client
 
 if __name__ == "__main__":
     client = Client()
-    client.generateManifest()
+    client.diffManifest()
